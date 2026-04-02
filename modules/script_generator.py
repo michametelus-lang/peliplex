@@ -51,3 +51,4 @@ class ScriptGenerator:
                 )
             )
         return beats
+        
