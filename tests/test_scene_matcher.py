@@ -14,3 +14,4 @@ def test_scene_selection_per_beat():
     matches = SceneMatcher().match(beats, scenes)
     assert len(matches) == 2
     assert matches[0].scene.start <= matches[1].scene.start
+    
