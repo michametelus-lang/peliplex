@@ -108,7 +108,7 @@ class PipelineConfig(ModelMixin):
     input_video: str = ""
     output_dir: str = "output"
     language: str = "es"
-    target_total_duration: int = 45
+    target_total_duration: int = 330
     beat_min_duration: float = 2.0
     beat_max_duration: float = 9.0
     vertical_format: bool = True
@@ -117,8 +117,8 @@ class PipelineConfig(ModelMixin):
     def validate(self) -> None:
         if not self.input_video:
             raise ValueError("input_video es obligatorio")
-        if not 20 <= self.target_total_duration <= 90:
-            raise ValueError("target_total_duration debe estar entre 20 y 90 segundos")
+        if not 300 <= self.target_total_duration <= 360:
+            raise ValueError("target_total_duration debe estar entre 300 y 360 segundos")
         if self.beat_min_duration < 1.5:
             raise ValueError("beat_min_duration debe ser >= 1.5")
         if self.beat_max_duration < self.beat_min_duration:
