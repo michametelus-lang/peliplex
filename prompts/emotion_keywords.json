@@ -1,0 +1,7 @@
+{
+  "intriga": ["misterio", "secreto", "nadie sabía", "sorpresa", "oculto"],
+  "tension": ["peligro", "urgente", "presión", "amenaza", "riesgo"],
+  "impacto": ["increíble", "brutal", "cambio total", "explota", "giro"],
+  "alivio": ["finalmente", "resuelve", "calma", "aprenden", "cierre"],
+  "drama": ["pérdida", "conflicto", "familia", "decisión", "dolor"]
+}
