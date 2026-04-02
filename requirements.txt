@@ -1,7 +1,0 @@
-whisper
-transformers
-torch
-moviepy
-opencv-python
-rapidfuzz
-pyttsx3
