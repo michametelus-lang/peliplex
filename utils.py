@@ -34,3 +34,4 @@ def check_ffmpeg_installed() -> None:
 def normalize_text(value: str) -> str:
     """Normalize text for lightweight semantic matching."""
     return " ".join(value.lower().strip().split())
+    
