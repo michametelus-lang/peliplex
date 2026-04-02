@@ -18,12 +18,12 @@ def test_pipeline_logic_smoke():
     summary = SummaryResult(mode="viral_story", summary_text="historia con secreto, riesgo y giro", key_points=["secreto", "riesgo", "giro"], highlights=["giro final"])
 
     story = StoryAnalyzer().analyze(transcript, summary)
-    cfg = build_config({"input_video": "demo.mp4", "target_total_duration": 35})
+    cfg = build_config({"input_video": "demo.mp4", "target_total_duration": 330})
     beats = ScriptGenerator().generate(story, cfg)
     detector = SceneDetector(Path("prompts") / "emotion_keywords.json")
     scenes = detector.detect("fake.mp4", transcript, summary)
     matches = SceneMatcher().match(beats, scenes)
-    timeline = TimelinePlanner().plan(matches, cfg.intensity)
+    timeline = TimelinePlanner().plan(matches, cfg.intensity, cfg.target_total_duration)
 
     assert len(beats) == 6
     assert len(scenes) >= 1
