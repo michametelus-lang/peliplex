@@ -16,6 +16,7 @@ DEFAULT_DIRS = [
     "clips",
     "edits",
     "metadata",
+    "uploads",
 ]
 
 
