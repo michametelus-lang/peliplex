@@ -17,8 +17,8 @@ from modules.script_generator import ScriptGenerator
 from modules.story_analyzer import StoryAnalyzer
 from modules.style_detector import StyleDetector
 from modules.summarization import Summarizer
-from modules.transcription import TranscriptionService
 from modules.timeline_planner import TimelinePlanner
+from modules.transcription import TranscriptionService
 from modules.tts import TTSGenerator
 from utils import check_ffmpeg_installed, save_json, setup_logging
 
@@ -29,23 +29,27 @@ def _auto_tune(config: PipelineConfig, transcript: List[TranscriptSegment]) -> P
     if config.mode != "auto":
         return config
 
-    detector = StyleDetector()
-    style = detector.predict(transcript)
+    style = StyleDetector().predict(transcript)
     raw = config.model_dump()
     raw["style"] = style.primary_style
 
     token_count = sum(len(seg.text.split()) for seg in transcript)
-    if token_count > 1000:
+    if token_count > 3000:
         raw["intensity"] = "alta"
-        raw["target_total_duration"] = min(90, max(45, config.target_total_duration))
+        raw["target_total_duration"] = min(360, max(330, config.target_total_duration))
     elif token_count < 350:
         raw["intensity"] = "baja"
-        raw["target_total_duration"] = max(20, min(40, config.target_total_duration))
+        raw["target_total_duration"] = max(300, min(330, config.target_total_duration))
     else:
         raw["intensity"] = "media"
 
     tuned = build_config(raw)
-    logger.info("AUTO mode ajustó style=%s intensity=%s duration=%s", tuned.style, tuned.intensity, tuned.target_total_duration)
+    logger.info(
+        "AUTO mode ajustó style=%s intensity=%s duration=%ss",
+        tuned.style,
+        tuned.intensity,
+        tuned.target_total_duration,
+    )
     return tuned
 
 
@@ -56,8 +60,7 @@ def run_pipeline(config: PipelineConfig) -> Path:
     ensure_output_dirs(config.output_dir)
     out = Path(config.output_dir)
 
-    transcriber = TranscriptionService()
-    transcript = transcriber.transcribe(
+    transcript = TranscriptionService().transcribe(
         config.input_video,
         language=config.language,
         save_path=out / "transcripts" / "transcript.json",
@@ -65,8 +68,7 @@ def run_pipeline(config: PipelineConfig) -> Path:
 
     config = _auto_tune(config, transcript)
 
-    summarizer = Summarizer()
-    summary = summarizer.summarize(transcript, mode=config.summary_mode)
+    summary = Summarizer().summarize(transcript, mode=config.summary_mode)
     save_json(out / "summaries" / "summary.json", summary.model_dump())
 
     story = StoryAnalyzer().analyze(transcript, summary)
@@ -75,22 +77,35 @@ def run_pipeline(config: PipelineConfig) -> Path:
     beats: List[ScriptBeat] = ScriptGenerator().generate(story, config)
     save_json(out / "scripts" / "script_beats.json", [b.model_dump() for b in beats])
 
-    scene_detector = SceneDetector(Path("prompts") / "emotion_keywords.json")
-    scenes = scene_detector.detect(
+    scenes = SceneDetector(Path("prompts") / "emotion_keywords.json").detect(
         video_path=config.input_video,
         transcript=transcript,
         summary=summary,
         save_path=out / "scenes" / "scene_candidates.json",
     )
 
-    matcher = SceneMatcher()
-    matches = matcher.match(beats, scenes)
+    matches = SceneMatcher().match(
+        beats,
+        scenes,
+        target_duration=config.target_total_duration,
+        intensity=config.intensity,
+    )
     save_json(out / "metadata" / "scene_matches.json", [m.model_dump() for m in matches])
 
-    timeline = TimelinePlanner().plan(matches, config.intensity)
+    timeline = TimelinePlanner().plan(
+        matches,
+        intensity=config.intensity,
+        target_duration=config.target_total_duration,
+    )
     save_json(out / "metadata" / "timeline_plan.json", [t.model_dump() for t in timeline])
 
-    clip_paths = ClipGenerator().export(config.input_video, timeline, out / "clips")
+    clip_paths = ClipGenerator().export(
+        config.input_video,
+        timeline,
+        out / "clips",
+        intensity=config.intensity,
+        target_duration=config.target_total_duration,
+    )
 
     tts_audio = None
     if config.tts_enabled:
@@ -100,6 +115,7 @@ def run_pipeline(config: PipelineConfig) -> Path:
     final_path = Editor().assemble(
         clip_paths=clip_paths,
         output_path=out / "edits" / "final_video.mp4",
+        target_duration=config.target_total_duration,
         editor_mode=config.editor_mode,
         title=title,
         tts_audio=tts_audio,
@@ -124,7 +140,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--editor-mode", default="narrativo", choices=["narrativo", "lista_escenas", "highlights"])
     parser.add_argument("--enable-tts", action="store_true")
     parser.add_argument("--enable-monetization", action="store_true")
-    parser.add_argument("--target-duration", type=int, default=45)
+    parser.add_argument("--target-duration", type=int, default=330, help="Duración objetivo en segundos (300-360)")
     parser.add_argument("--language", default="es")
     parser.add_argument("--vertical-format", action="store_true")
     parser.add_argument("--output-dir", default="output")
