@@ -8,7 +8,7 @@ def test_valid_config():
     cfg = build_config(
         {
             "input_video": "demo.mp4",
-            "target_total_duration": 45,
+            "target_total_duration": 330,
             "beat_min_duration": 2.0,
             "beat_max_duration": 8.0,
         }
@@ -18,4 +18,4 @@ def test_valid_config():
 
 def test_invalid_duration_raises():
     with pytest.raises(InvalidConfigurationError):
-        build_config({"input_video": "demo.mp4", "target_total_duration": 10})
+        build_config({"input_video": "demo.mp4", "target_total_duration": 200})
