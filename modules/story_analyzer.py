@@ -29,3 +29,4 @@ class StoryAnalyzer:
             climax=pre_end[:170],
             resolution=end[:150],
         )
+        
