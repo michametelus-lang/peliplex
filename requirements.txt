@@ -1,0 +1,13 @@
+openai-whisper
+transformers
+torch
+moviepy
+opencv-python
+rapidfuzz
+numpy
+pydantic>=2.0
+edge-tts
+pyttsx3
+ffmpeg-python
+pytest
+streamlit
