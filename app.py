@@ -7,7 +7,7 @@ from typing import Any
 
 import streamlit as st
 
-from config import build_config
+from config import build_config, ensure_output_dirs
 from main import run_pipeline
 
 
@@ -18,14 +18,52 @@ def _read_json(path: Path) -> Any:
         return json.load(f)
 
 
+def _format_mmss(seconds: int) -> str:
+    minutes = seconds // 60
+    remaining = seconds % 60
+    return f"{minutes:02d}:{remaining:02d}"
+
+
+def _resolve_input_video(manual_path: str, uploaded_file: Any, output_dir: str) -> str:
+    """Resolve input path prioritizing uploaded file over manual path."""
+    if uploaded_file is not None:
+        uploads_dir = Path(output_dir) / "uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        saved_path = uploads_dir / uploaded_file.name
+        saved_path.write_bytes(uploaded_file.getbuffer())
+        st.sidebar.success(f"Archivo subido y guardado: {saved_path.name}")
+        st.sidebar.info(f"Video activo: {saved_path}")
+        return str(saved_path)
+
+    if manual_path.strip():
+        path = Path(manual_path.strip()).expanduser().resolve()
+        if not path.exists() or not path.is_file():
+            raise FileNotFoundError(f"La ruta manual no existe o no es un archivo: {path}")
+        st.sidebar.info(f"Video activo: {path}")
+        return str(path)
+
+    raise ValueError("Debes subir un video o escribir una ruta manual válida.")
+
+
 def _build_sidebar() -> dict[str, Any]:
     st.sidebar.header("Configuración")
-    input_video = st.sidebar.text_input("Input video", value="")
+    st.sidebar.markdown("### Sube un video")
+    uploaded_file = st.sidebar.file_uploader(
+        "Formatos permitidos",
+        type=["mp4", "mkv", "avi", "mov", "webm"],
+        accept_multiple_files=False,
+    )
+
+    st.sidebar.markdown("### O escribe la ruta del video")
+    manual_path = st.sidebar.text_input("Ruta manual", value="")
+
     mode = st.sidebar.selectbox("Mode", ["auto", "manual"], index=0)
     intensity = st.sidebar.selectbox("Intensity", ["baja", "media", "alta"], index=1)
-    duration = st.sidebar.slider("Duración objetivo (s)", min_value=20, max_value=90, value=45)
+    duration = st.sidebar.slider("Duración objetivo (s)", min_value=300, max_value=360, value=330)
+    st.sidebar.caption(f"Duración elegida: {_format_mmss(duration)} (mm:ss)")
     enable_tts = st.sidebar.checkbox("Enable TTS", value=False)
     enable_monetization = st.sidebar.checkbox("Enable monetization", value=False)
+    output_dir = st.sidebar.text_input("Output dir", value="output")
 
     return {
         "mode": mode,
@@ -33,8 +71,9 @@ def _build_sidebar() -> dict[str, Any]:
         "target_total_duration": duration,
         "tts_enabled": enable_tts,
         "monetization_enabled": enable_monetization,
-        "input_video": input_video,
-        "output_dir": "output",
+        "manual_input_video": manual_path,
+        "uploaded_file": uploaded_file,
+        "output_dir": output_dir,
         "summary_mode": "viral_story",
         "editor_mode": "narrativo",
         "language": "es",
@@ -45,25 +84,28 @@ def _build_sidebar() -> dict[str, Any]:
 def main() -> None:
     st.set_page_config(page_title="PeliPlex", layout="wide")
     st.title("PeliPlex · Narrativa audiovisual automática")
-    st.caption("Convierte videos largos en historias cortas narradas para Shorts/Reels/TikTok.")
+    st.caption("Sube un video con voz o usa ruta manual para generar una historia resumida de 5–6 minutos.")
 
     cfg_raw = _build_sidebar()
 
     if st.button("Ejecutar pipeline", type="primary"):
-        if not cfg_raw["input_video"]:
-            st.error("Debes indicar la ruta del video de entrada.")
-        else:
-            try:
-                config = build_config(cfg_raw)
-                final_path = run_pipeline(config)
-                st.success(f"Pipeline completado. Video final: {final_path}")
-                st.session_state["peliplex_output"] = config.output_dir
-                st.session_state["peliplex_final"] = str(final_path)
-            except Exception as exc:  # runtime pipeline errors should be shown in UI
-                st.exception(exc)
+        try:
+            ensure_output_dirs(cfg_raw["output_dir"])
+            input_video = _resolve_input_video(
+                manual_path=cfg_raw.pop("manual_input_video"),
+                uploaded_file=cfg_raw.pop("uploaded_file"),
+                output_dir=cfg_raw["output_dir"],
+            )
+            cfg_raw["input_video"] = input_video
+            config = build_config(cfg_raw)
+            final_path = run_pipeline(config)
+            st.success(f"Pipeline completado. Video final: {final_path}")
+            st.session_state["peliplex_output"] = config.output_dir
+            st.session_state["peliplex_final"] = str(final_path)
+        except Exception as exc:
+            st.error(str(exc))
 
-    output_dir = Path(st.session_state.get("peliplex_output", "output"))
-
+    output_dir = Path(st.session_state.get("peliplex_output", cfg_raw["output_dir"]))
     tabs = st.tabs(["Transcripción", "Resumen", "Narrativa", "Escenas", "Matching", "Clips", "Final"])
 
     with tabs[0]:
