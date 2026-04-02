@@ -34,3 +34,7 @@ class ClipExportError(PeliPlexError):
 
 class TTSError(PeliPlexError):
     """Raised when text-to-speech generation fails."""
+
+
+class VideoAssemblyError(PeliPlexError):
+    """Raised when final video assembly fails."""
